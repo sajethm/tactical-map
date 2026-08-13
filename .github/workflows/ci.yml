@@ -92,7 +92,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Prepare database
-        run: bin/rails db:prepare
+        run: bin/rails db:test:prepare
 
       - name: Run RSpec
         run: bundle exec rspec
