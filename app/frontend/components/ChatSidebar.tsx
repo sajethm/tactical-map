@@ -10,7 +10,6 @@ interface Props {
   busy: boolean
   error: string | null
   onSend: (content: string) => void
-  currentUserEmail: string
 }
 
 const ACTION_LABELS: Record<Action['type'], string | null> = {
@@ -88,7 +87,6 @@ export default function ChatSidebar({
   busy,
   error,
   onSend,
-  currentUserEmail,
 }: Props) {
   const [draft, setDraft] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -117,12 +115,9 @@ export default function ChatSidebar({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-2.5 border-b border-rule px-4 py-3">
-        <Reticle className="size-5 shrink-0" />
-        <div className="min-w-0">
-          <h1 className="text-[13px] leading-tight font-semibold tracking-tight">Tactical Map</h1>
-          <p className="readout truncate text-[11px] leading-tight text-faint">{currentUserEmail}</p>
-        </div>
+      <header className="flex h-11 shrink-0 items-center gap-2.5 border-b border-rule px-4">
+        <Reticle className="size-4 shrink-0" />
+        <h1 className="text-[13px] leading-tight font-semibold tracking-tight">Tactical Map</h1>
       </header>
 
       <ol className="scroll-thin flex-1 space-y-3 overflow-y-auto px-4 py-3.5">

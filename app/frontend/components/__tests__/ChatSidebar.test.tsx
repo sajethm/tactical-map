@@ -21,7 +21,7 @@ describe('ChatSidebar', () => {
 
   it('renders message history', () => {
     render(<ChatSidebar messages={[userMessage, assistantMessage]} busy={false} error={null}
-                        onSend={vi.fn()} currentUserEmail="demo@example.com" />)
+                        onSend={vi.fn()} />)
     expect(screen.getByText('zoom to the tanker')).toBeInTheDocument()
     expect(screen.getByText('Which tanker do you mean?')).toBeInTheDocument()
   })
@@ -29,7 +29,7 @@ describe('ChatSidebar', () => {
   it('renders clarification chips and sends the chosen one', async () => {
     const onSend = vi.fn()
     render(<ChatSidebar messages={[userMessage, assistantMessage]} busy={false} error={null}
-                        onSend={onSend} currentUserEmail="demo@example.com" />)
+                        onSend={onSend} />)
     await userEvent.click(screen.getByRole('button', { name: 'Tanker-2' }))
     expect(onSend).toHaveBeenCalledWith('Tanker-2')
   })
@@ -37,7 +37,7 @@ describe('ChatSidebar', () => {
   it('submits typed input and clears it', async () => {
     const onSend = vi.fn()
     render(<ChatSidebar messages={[]} busy={false} error={null}
-                        onSend={onSend} currentUserEmail="demo@example.com" />)
+                        onSend={onSend} />)
     const input = screen.getByPlaceholderText(/command/i)
     await userEvent.type(input, 'show all ships{enter}')
     expect(onSend).toHaveBeenCalledWith('show all ships')
@@ -45,14 +45,14 @@ describe('ChatSidebar', () => {
   })
 
   it('disables input while busy', () => {
-    render(<ChatSidebar messages={[]} busy error={null} onSend={vi.fn()} currentUserEmail="d@e.com" />)
+    render(<ChatSidebar messages={[]} busy error={null} onSend={vi.fn()} />)
     expect(screen.getByPlaceholderText(/command/i)).toBeDisabled()
   })
 
   it('disables the mic with an explanation when speech is unsupported', () => {
     removeSpeechStub()
     render(<ChatSidebar messages={[]} busy={false} error={null}
-                        onSend={vi.fn()} currentUserEmail="demo@example.com" />)
+                        onSend={vi.fn()} />)
     const mic = screen.getByRole('button', { name: /start voice input/i })
     expect(mic).toBeDisabled()
     expect(mic).toHaveAttribute('title', expect.stringMatching(/chrome/i))
@@ -61,7 +61,7 @@ describe('ChatSidebar', () => {
   it('starts listening when the mic is clicked', async () => {
     installSpeechStub()
     render(<ChatSidebar messages={[]} busy={false} error={null}
-                        onSend={vi.fn()} currentUserEmail="demo@example.com" />)
+                        onSend={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /start voice input/i }))
 
     const mic = screen.getByRole('button', { name: /stop voice input/i })
@@ -75,7 +75,7 @@ describe('ChatSidebar', () => {
     installSpeechStub()
     const onSend = vi.fn()
     render(<ChatSidebar messages={[]} busy={false} error={null}
-                        onSend={onSend} currentUserEmail="demo@example.com" />)
+                        onSend={onSend} />)
     await userEvent.click(screen.getByRole('button', { name: /start voice input/i }))
     act(() => StubSpeechRecognition.latest().emit('show all ships'))
 
@@ -86,7 +86,7 @@ describe('ChatSidebar', () => {
   it('appends dictation to text already typed', async () => {
     installSpeechStub()
     render(<ChatSidebar messages={[]} busy={false} error={null}
-                        onSend={vi.fn()} currentUserEmail="demo@example.com" />)
+                        onSend={vi.fn()} />)
     await userEvent.type(screen.getByPlaceholderText(/command/i), 'show me')
     await userEvent.click(screen.getByRole('button', { name: /start voice input/i }))
     act(() => StubSpeechRecognition.latest().emit('all ships'))
@@ -98,7 +98,7 @@ describe('ChatSidebar', () => {
     installSpeechStub()
     const onSend = vi.fn()
     render(<ChatSidebar messages={[]} busy={false} error={null}
-                        onSend={onSend} currentUserEmail="demo@example.com" />)
+                        onSend={onSend} />)
     await userEvent.click(screen.getByRole('button', { name: /start voice input/i }))
     act(() => StubSpeechRecognition.latest().emit('show all ships'))
     await userEvent.click(screen.getByRole('button', { name: 'Send command' }))
@@ -110,7 +110,7 @@ describe('ChatSidebar', () => {
   it('shows a microphone permission error', async () => {
     installSpeechStub()
     render(<ChatSidebar messages={[]} busy={false} error={null}
-                        onSend={vi.fn()} currentUserEmail="demo@example.com" />)
+                        onSend={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /start voice input/i }))
     act(() => StubSpeechRecognition.latest().fail('not-allowed'))
 

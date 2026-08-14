@@ -19,14 +19,12 @@ interface Props {
   mapboxToken: string
   initialEntities: Entity[]
   initialMessages: ChatMessage[]
-  currentUserEmail: string
 }
 
 export default function Dashboard({
   mapboxToken,
   initialEntities,
   initialMessages,
-  currentUserEmail,
 }: Props) {
   const queryClient = useQueryClient()
   const { data: entities = [] } = useEntities(initialEntities)
@@ -98,8 +96,7 @@ export default function Dashboard({
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-ground text-foreground">
       <aside className="flex w-[368px] shrink-0 flex-col border-r border-rule bg-panel">
-        <ChatSidebar messages={messages} busy={busy} error={error} onSend={send}
-                     currentUserEmail={currentUserEmail} />
+        <ChatSidebar messages={messages} busy={busy} error={error} onSend={send} />
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">
         <MapToolbar
