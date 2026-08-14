@@ -11,7 +11,6 @@ interface Props {
   error: string | null
   onSend: (content: string) => void
   currentUserEmail: string
-  contextNote?: string
 }
 
 const ACTION_LABELS: Record<Action['type'], string | null> = {
@@ -78,11 +77,9 @@ const Entry = ({
 const footerNote = (
   speechError: string | null,
   isListening: boolean,
-  contextNote?: string,
 ): { text: string; tone: string } | null => {
   if (speechError) return { text: speechError, tone: 'text-destructive' }
   if (isListening) return { text: 'Listening — speak your command', tone: 'text-chart-1' }
-  if (contextNote) return { text: contextNote, tone: 'text-faint' }
   return null
 }
 
@@ -92,7 +89,6 @@ export default function ChatSidebar({
   error,
   onSend,
   currentUserEmail,
-  contextNote,
 }: Props) {
   const [draft, setDraft] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -100,7 +96,7 @@ export default function ChatSidebar({
 
   const handleTranscript = useCallback((text: string) => setDraft(text), [])
   const speech = useSpeechInput({ onTranscript: handleTranscript })
-  const note = footerNote(speech.error, speech.isListening, contextNote)
+  const note = footerNote(speech.error, speech.isListening)
 
   const handleToggleMic = () => {
     if (speech.isListening) speech.stop()

@@ -24,7 +24,7 @@ export default function AuditDrawer({ open, onToggle }: Props) {
       >
         <SheetHeader className="shrink-0 gap-1 border-b border-rule px-4 py-3 pr-12">
           <SheetTitle className="text-[13px] font-semibold tracking-tight">Audit log</SheetTitle>
-          <p className="eyebrow text-faint">Every action, and the command behind it</p>
+          <p className="eyebrow text-faint">Every action, most recent first</p>
         </SheetHeader>
         <ScrollArea className="min-h-0 flex-1">
           <ul>
@@ -35,9 +35,6 @@ export default function AuditDrawer({ open, onToggle }: Props) {
                 </time>
                 <div className="min-w-0 space-y-1">
                   <p className="eyebrow text-dim">{event.event_type.replace(/_/g, ' ')}</p>
-                  {event.message_content && (
-                    <p className="text-[12.5px] leading-snug text-foreground">{event.message_content}</p>
-                  )}
                   <p
                     className="readout truncate text-[10.5px] text-faint"
                     title={JSON.stringify(event.payload)}

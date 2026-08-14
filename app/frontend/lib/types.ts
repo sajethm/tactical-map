@@ -31,7 +31,6 @@ export interface AuditEventRow {
   id: number
   event_type: string
   payload: Record<string, unknown>
-  message_content: string | null
   created_at: string
 }
 

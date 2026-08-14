@@ -95,15 +95,11 @@ export default function Dashboard({
     deleteEntityMutation.mutate(entityId)
   }, [deleteEntityMutation])
 
-  const contextNote = selectedEntity
-    ? `Sends viewport + ${selectedEntity.name}`
-    : 'Sends the current viewport'
-
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-ground text-foreground">
       <aside className="flex w-[368px] shrink-0 flex-col border-r border-rule bg-panel">
         <ChatSidebar messages={messages} busy={busy} error={error} onSend={send}
-                     currentUserEmail={currentUserEmail} contextNote={contextNote} />
+                     currentUserEmail={currentUserEmail} />
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">
         <MapToolbar

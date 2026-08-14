@@ -60,13 +60,13 @@ RSpec.describe 'Messages API', type: :request do
   end
 
   describe 'GET /audit_events' do
-    it 'lists recent events newest first with message content' do
+    it 'lists recent events newest first' do
       msg = create(:message, conversation: user.current_conversation, role: 'assistant', content: 'Flying there.')
       AuditEvent.record!(user: user, message: msg, event_type: 'fly_to', payload: { 'lat' => 1.0 })
       get audit_events_path
       json = JSON.parse(response.body)
       expect(json['audit_events'].first).to include(
-        'event_type' => 'fly_to', 'message_content' => 'Flying there.'
+        'event_type' => 'fly_to', 'payload' => { 'lat' => 1.0 }
       )
     end
   end
