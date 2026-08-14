@@ -2,7 +2,7 @@ module Commands
   class RequestCompletion
     MODEL = "gpt-5.4-mini".freeze
     MAX_CORRECTION_ATTEMPTS = 1
-    MAX_ROUNDS = 3
+    MAX_ROUNDS = 6
 
     class InvalidToolArgs < StandardError; end
 
