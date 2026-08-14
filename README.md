@@ -2,7 +2,7 @@
 
 Tactical Map is a full-stack, map-based application (Rails 8, Inertia, React) where users create, place, view, and filter entities on a live tactical map using natural-language commands — typed or spoken. OpenAI tool calling translates each command into one or more validated map actions, and every command and action is durably recorded in an operator-facing audit log.
 
-**Live demo:** https://tactical-map.onrender.com — sign in with `demo@example.com` / `password123`.
+**Live demo:** https://tactical-map-vhb0.onrender.com — sign in with `demo@example.com` / `password123`.
 
 ## How the requirements are addressed
 
