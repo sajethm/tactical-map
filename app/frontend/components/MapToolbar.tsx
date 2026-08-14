@@ -1,4 +1,5 @@
-import { CloudSun, ScrollText } from 'lucide-react'
+import { router } from '@inertiajs/react'
+import { CloudSun, LogOut, ScrollText } from 'lucide-react'
 import FilterChips from '@/components/FilterChips'
 import KindGlyph from '@/components/KindGlyph'
 import { KIND_LABELS, KINDS } from '@/lib/palette'
@@ -84,6 +85,16 @@ export default function MapToolbar({
       >
         <ScrollText className="size-3.5" />
         Audit log
+      </button>
+
+      <button
+        type="button"
+        onClick={() => router.delete('/session')}
+        title="Sign out"
+        className="eyebrow flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-rule px-2 text-dim transition-colors hover:border-edge hover:text-foreground"
+      >
+        <LogOut className="size-3.5" />
+        Sign out
       </button>
     </div>
   )
