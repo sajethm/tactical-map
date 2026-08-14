@@ -53,6 +53,7 @@ async function applyAction(action: Action, deps: ExecutorDeps): Promise<void> {
       await deps.refetchEntities()
       deps.dispatch({ type: 'clearFilters' })
       deps.map.flyTo({ center: [action.lng, action.lat], zoom: 12 })
+      if (action.entity_id != null) deps.dispatch({ type: 'openDetails', entityId: action.entity_id })
       return
     case 'delete_marker': {
       if (action.deleted !== true) return

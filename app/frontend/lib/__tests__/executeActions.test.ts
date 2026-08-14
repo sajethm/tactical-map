@@ -65,6 +65,20 @@ describe('executeActions', () => {
     expect(deps.map.flyTo).toHaveBeenCalledWith({ center: [-63.1, 44.1], zoom: 12 })
   })
 
+  it('place_marker opens details for the new marker', async () => {
+    const deps = makeDeps()
+    await executeActions([{ type: 'place_marker', lat: 44.1, lng: -63.1, name: 'RP', entity_id: 9 }], deps)
+    expect(deps.dispatch).toHaveBeenCalledWith({ type: 'openDetails', entityId: 9 })
+  })
+
+  it('place_marker without an entity_id does not open details', async () => {
+    const deps = makeDeps()
+    await executeActions([{ type: 'place_marker', lat: 44.1, lng: -63.1, name: 'RP' }], deps)
+    expect(deps.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'openDetails' }),
+    )
+  })
+
   it('refetches and clears state after a successful delete_marker', async () => {
     const deps = makeDeps()
 
