@@ -1,24 +1,50 @@
 # Tactical Map
 
-## What it is
+Tactical Map is a full-stack, map-based application (Rails 8, Inertia, React) where users create, place, view, and filter entities on a live tactical map using natural-language commands — typed or spoken. OpenAI tool calling translates each command into one or more validated map actions, and every command and action is durably recorded in an operator-facing audit log.
 
-Tactical Map is a Rails 8.1, Inertia, and React application for controlling a live tactical map with natural-language chat. A user can ask to find assets, move the viewport, inspect an entity, display its recent track, place a marker, or combine several of those operations in one command. OpenAI tool calling translates the request into validated map actions, while the application preserves both an operator-facing action log and a model-level request record.
+**Live demo:** https://tactical-map.onrender.com — sign in with `demo@example.com` / `password123`.
 
-> **Screenshot placeholder:** Add a dashboard screenshot here showing the chat, map, entity details, filter chips, and audit drawer.
+## How the requirements are addressed
 
-## Quick start
+**Create, place, view, and filter entities via voice or typed commands.** The chat accepts typed commands, and the composer's microphone button dictates commands via the browser's `SpeechRecognition` API. The command vocabulary is a small set of server-owned tools:
 
-You need Ruby 3.3, Node.js 24, pnpm 11, and PostgreSQL. Clone the repository, make sure PostgreSQL is running, and let the setup script install dependencies and prepare the development databases:
+| Tool | Purpose |
+| --- | --- |
+| `fly_to` | Pan and zoom to an entity, coordinate, or geographic bounds. |
+| `filter_entities` | Restrict visible entities by kind, status, name, or scope. |
+| `place_marker` | Create a named marker at a latitude and longitude. |
+| `show_history` | Draw the recent position trail for an entity. |
+| `open_details` | Open the selected entity's information panel. |
+| `clear_filters` | Restore the unfiltered entity view. |
+| `ask_clarification` | Ask a focused follow-up question, optionally with choices. |
+| `set_weather_overlay` | Show or hide an OpenWeather layer over the map. |
+| `delete_marker` | Permanently delete an operator-placed marker. |
 
-```sh
-bin/setup
-```
+**Ambiguity handling.** When a command is unclear ("show me the ship" when three ships are visible), the model calls `ask_clarification` instead of guessing. The question renders in the chat with tappable choice chips, and the operator's answer resolves the original request. The same principle applies to voice: dictated text stays in the composer for correction rather than auto-sending, so a misheard callsign never becomes a command.
 
-Copy `.env.example` to `.env` and replace the placeholders with valid OpenAI, Mapbox, and OpenWeather credentials (the OpenWeather key is free-tier; new keys can take up to an hour to activate). Start Rails, Vite, and the local process group with `bin/dev`, then open the URL shown in the terminal. The seeded demo account is `demo@example.com` with password `password123`.
+**Audit / historic event log.** Every action and mutation writes one durable `AuditEvent` row, viewable in the audit drawer. Separately, each model call is captured as an `AiRequest` with the exact prompt, response, model name, and token usage — so there is both an operator-facing history and a model-level request record.
+
+**Serialized actions.** A single command like "find the nearest aircraft, zoom to it, and open its details" produces an ordered list of tool calls. Each is schema-validated on the server, side effects and audit rows are applied in order, and the browser replays the ordered action list through a sequential map executor so the operator sees each step happen.
+
+## Stack choice
+
+Rails 8, Inertia, React, and Postgres. The assessment encourages the tools you can best demonstrate with, and I'm a Rails developer — this stack was the fastest path from empty repo to a working full-stack app, with authentication, background jobs (Solid Queue), and migrations all in the framework.
+
+Inertia bridges the two halves: Rails renders and routes React components directly, with no separate API app to build or deploy. Once a page is mounted in the browser it behaves like an SPA — from there, TanStack Query (react-query) handles all server state: polling entities, tracking message status, and mutations. The UI is built on shadcn/ui components with Tailwind, and Mapbox GL JS renders the map.
+
+## The map UI
+
+Mapbox GL JS (v3) renders the map — a globe when zoomed out — on a dark basemap tinted for a tactical look. Entities are drawn as GeoJSON layers on top: kind-specific symbols with leader lines showing heading and speed, faded history trails with a soft halo, and a nautical-mile scale control. The chat, entity details panel, filter chips, and audit drawer sit alongside the map.
+
+The world itself is simulated. The database is seeded with 40 assets around Halifax — 18 ships, 12 aircraft, 10 vehicles — each with 24 hours of pre-seeded position history so trails render immediately. A recurring Solid Queue job (`SimulationTickJob`, every 30 seconds) advances each active asset along its heading with a small random drift, appends a new `EntityPosition`, and prunes history older than 24 hours — so the map is always in motion and "show me its recent track" always has real data behind it.
+
+I debated pulling live flight data from the OpenSky Network API, but chose simulation for simplicity: demos stay deterministic, and there are no third-party rate limits, auth, or availability concerns. The `Entity` model is the seam where a live adapter would slot in later.
+
+Weather overlays are also appended to the Mapbox map. The `set_weather_overlay` tool (or the Weather toolbar button) adds an OpenWeather tile layer as a Mapbox raster source, rendered at 55% opacity beneath the tactical layers so entities stay legible. Tiles are fetched through a Rails proxy (`/weather/tiles/:layer/:z/:x/:y`) so the OpenWeather key never reaches the client, with a 30-minute browser cache.
 
 ## Architecture
 
-The HTTP request is intentionally short: it persists the command and hands model work to Solid Queue. Model context is assembled on the server, tool output is schema-validated before any effect is applied, and the browser receives only an ordered action list that its map executor can replay visibly.
+The HTTP request is intentionally short: it persists the command and hands model work to Solid Queue. Model context (viewport, selection, visible entities, recent messages) is assembled on the server, tool output is schema-validated before any effect is applied, and the browser receives only an ordered action list.
 
 ```mermaid
 flowchart LR
@@ -33,66 +59,7 @@ flowchart LR
   I --> J[Sequential map action executor]
 ```
 
-The command vocabulary is deliberately small. Each tool has a server-owned schema, and tool calls are processed in the order returned by the model.
-
-| Tool | Purpose |
-| --- | --- |
-| `fly_to` | Pan and zoom to an entity, coordinate, or geographic bounds. |
-| `filter_entities` | Restrict visible entities by kind, status, name, or scope. |
-| `place_marker` | Create a named marker at a latitude and longitude. |
-| `show_history` | Draw the recent position trail for an entity. |
-| `open_details` | Open the selected entity's information panel. |
-| `clear_filters` | Restore the unfiltered entity view. |
-| `ask_clarification` | Ask a focused follow-up question, optionally with choices. |
-| `set_weather_overlay` | Show or hide an OpenWeather layer over the map. |
-| `delete_marker` | Permanently delete an operator-placed marker. |
-
-### Weather overlays
-
-"Show me weather overlays for the current zoom window" is handled by the
-`set_weather_overlay` tool. It is client-executed like `fly_to`: the LLM emits
-the action, the browser reducer stores the active layer and opens the Weather
-panel, and MapCanvas renders it as a Mapbox raster layer under the tactical
-layers. Tiles come from OpenWeather Maps 1.0 via a Rails proxy
-(`/weather/tiles/:layer/:z/:x/:y`) so the API key never reaches the client;
-the proxy sets `Cache-Control: public, max-age=1800` so the browser caches
-tiles. The free tier serves current conditions only, so there is no forecast
-time slider. The Weather toolbar button toggles the same panel the command
-auto-opens.
-
-### Voice input
-
-The composer's microphone button uses the browser's `SpeechRecognition` API to
-dictate a command. Interim results stream into the input as you speak, and the
-transcript **stays in the box** — it is never auto-sent. That is deliberate:
-speech models mangle callsigns and place names, and the same principle behind
-`ask_clarification` applies one layer earlier, letting the operator correct a
-misheard transcript before it becomes a command.
-
-Dictation therefore resolves to ordinary text in the composer, and a spoken
-command takes the identical path as a typed one — `POST /messages`, an
-`AiRequest`, and `audit_events` rows. No new endpoint, no new persisted state.
-Audio never leaves the browser for this application's servers, so there is no
-upload path and no object storage to operate.
-
-The audit log does not record whether a command was spoken or typed. A flag set
-when dictation begins would remain set after the operator hand-edits the
-transcript, labelling as "voice" a command a human actually rewrote — a tag
-that reads as precise while being wrong. Recording this honestly means
-comparing submitted text against the final transcript and marking only exact
-matches, which is worth doing when someone needs the distinction and is not
-worth a misleading field before then.
-
-The tradeoff is browser support: `SpeechRecognition` is available in Chrome,
-Edge, and Safari but not Firefox, where the mic renders disabled with an
-explanation rather than disappearing. Chrome also relays audio to Google's
-speech service. A server-side Whisper endpoint would avoid both issues and put
-transcription itself under the audit trail, at the cost of a round trip and
-losing live interim text; it remains the natural upgrade if either matters.
-
-## Data model
-
-The schema separates operational state, conversational state, and observability. One rolling conversation is exposed per user today, while the tables leave room for multiple named conversations later.
+### Data model
 
 | Model | Purpose |
 | --- | --- |
@@ -104,31 +71,41 @@ The schema separates operational state, conversational state, and observability.
 | `AiRequest` | Exact model prompt/response, model name, token usage, and errors. |
 | `AuditEvent` | One durable, user-visible record per action or mutation. |
 
-Two denormalizations are deliberate. `entities.lat` and `entities.lng` hold the current position even though position history also exists, keeping frequent entity polling free of a “latest position” join. Likewise, `audit_events` overlaps with `messages.actions`: actions are optimized for chat replay, whereas audit rows remain independently queryable and stable if the message payload evolves.
+Two denormalizations are deliberate. `entities.lat`/`lng` hold the current position so frequent entity polling never joins for "latest position". And `audit_events` overlaps with `messages.actions`: actions are optimized for chat replay, while audit rows stay independently queryable even if the message payload evolves.
 
-## Tradeoffs
+### Tradeoffs
 
-Command processing is asynchronous because model latency and retries should not hold an HTTP request open. The browser polls message status rather than using WebSockets; this is simple to deploy and robust for one active client, at the cost of repeated requests and up to roughly one polling interval of added latency. ActionCable is a natural upgrade when multi-client or lower-latency delivery matters.
+- **Async processing + polling, not WebSockets.** Model latency shouldn't hold an HTTP request open, and polling is simple to deploy and robust for one active client. ActionCable is the natural upgrade for multi-client or lower-latency delivery.
+- **Float `lat`/`lng` columns, not PostGIS.** Positions are plain floats rather than a PostGIS `geography(Point)` column. PostGIS would give indexed spatial queries in SQL — "nearby nodes" via `ST_DWithin`/KNN ordering, true geodesic distances, viewport bounding-box filters — where today the seeded set is small enough that entities are polled to the client and spatial reasoning happens over the visible-entity context. Floats keep the schema and deployment plain Postgres with no extension to manage; PostGIS is the right move as soon as the entity count outgrows "send everything to the browser".
+- **Browser speech recognition, not server-side Whisper.** A Whisper endpoint would need an audio upload path and object storage to operate; browser `SpeechRecognition` needs neither — audio never leaves the browser and interim text streams live. The cost is Firefox, where the API is unavailable and the mic renders disabled with an explanation. For the demo, sacrificing Firefox was the better trade than standing up object storage; Whisper remains the natural upgrade.
 
-Solid Queue runs inside Puma on Render, which keeps the deployment to one web service but couples web and job capacity and makes `WEB_CONCURRENCY=1` important. The primary and queue roles share one Render Postgres database to reduce cost and operational overhead; separate migration paths preserve the logical boundary, but a queue spike can still contend with application queries. A larger deployment should split worker processes and, if needed, the databases.
+## Quick start
 
-The map uses seeded simulation instead of live aviation, maritime, or weather APIs, making demos deterministic and avoiding third-party availability and billing concerns. Entity filtering is client-side because the seeded set is small and already polled for map rendering. At larger scale, filters and viewport bounds should move into indexed server queries and live feeds should include explicit freshness and failure handling.
+You need Ruby 3.3, Node.js 24, pnpm 11, and PostgreSQL.
+
+```sh
+bin/setup                  # install dependencies, prepare databases
+cp .env.example .env       # then fill in OpenAI, Mapbox, OpenWeather keys
+bin/dev                    # Rails + Vite + process group
+```
+
+The seeded demo account is `demo@example.com` / `password123`. (New OpenWeather free-tier keys can take up to an hour to activate.)
 
 ## Testing
 
-Run the Rails suite with `bundle exec rspec` and the frontend suite with `pnpm test`. Check TypeScript independently with `pnpm exec tsc --noEmit` (or use the repository's `pnpm check` script for both configured TypeScript projects).
+- Backend: `bundle exec rspec` — prompt construction, tool schema validation, OpenAI response handling, action auditing, idempotent side effects, simulation.
+- Frontend: `pnpm test` — map reducer and sequential executor, clarification chips, speech-recognition handling and fallback, filters, trails, audit UI.
+- Types: `pnpm check`.
 
-RSpec covers authentication and API requests, prompt construction, tool schema validation, OpenAI response handling, action auditing, idempotent marker side effects, simulation movement, and position pruning. Vitest and Testing Library cover the map reducer and sequential executor, clarification chips and chat interactions, speech-recognition transcript handling and its unsupported-browser fallback, filters, trails, and audit-facing UI behavior. Model calls are stubbed at the HTTP boundary so the suites do not require an OpenAI key.
+Model calls are stubbed at the HTTP boundary, so the suites do not require an OpenAI key.
 
 ## Deployment
 
-The included `render.yaml` is a Render Blueprint for one Ruby web service and one PostgreSQL database. Create a new Blueprint in Render from this repository, review the proposed resources, and provide `RAILS_MASTER_KEY`, `OPENAI_API_KEY`, `MAPBOX_ACCESS_TOKEN`, and `OPENWEATHER_API_KEY` when prompted. `DATABASE_URL` is linked automatically from the managed database, and the pre-deploy command prepares and seeds both the application and Solid Queue schemas.
+`render.yaml` is a Render Blueprint for one Ruby web service and one PostgreSQL database. Create a Blueprint from this repository and provide `RAILS_MASTER_KEY`, `OPENAI_API_KEY`, `MAPBOX_ACCESS_TOKEN`, and `OPENWEATHER_API_KEY`; `DATABASE_URL` links automatically and the pre-deploy command prepares and seeds the databases.
 
-The service builds through `bin/render-build.sh`, starts Puma, and runs Solid Queue in the Puma process. The production database configuration maps both Rails' `primary` and `queue` roles to the same `DATABASE_URL`; this is intentional for the starter deployment and should be revisited before independently scaling web and job workloads.
+## LLM use
 
-## Extension points
+LLMs were used both **in** the product and **to build** it.
 
-- **Server-side transcription:** Swap browser `SpeechRecognition` for a Whisper endpoint to gain Firefox support and bring the audio-to-text step itself into the audit trail. The composer already treats the transcript as ordinary text, so only the hook changes.
-- **Live data:** Introduce adapters for feeds such as OpenSky and weather layers while retaining the `Entity` boundary and marking source freshness in `properties`.
-- **Multiple conversations:** Add names and conversation selection to the existing `conversations` table without changing the message processing loop.
-- **ActionCable:** Replace terminal-status polling with server push while keeping the same assistant-message and ordered-action contract.
+- **In the product:** OpenAI tool calling with `gpt-5.4-mini` translates commands into map actions, constrained by server-owned JSON schemas per tool. The model was chosen for its speed and cost efficiency: commands should resolve in a couple of seconds, each one may involve several tool-calling round trips, and the small tool vocabulary with strict schemas doesn't need a frontier model to be reliable. The system prompt, context assembly, and validation live in `app/services/commands/`.
+- **In development:** The project was built with Claude Code in a spec-first workflow. Claude did most of the scaffolding and setup (Rails 8 + Inertia + React app, auth, CI). Planning was done in Claude with Opus — requirements brainstormed into a written design spec and broken into implementation plans — and execution agents carried out the plan tasks using GPT-5.6 Sol, with the developer reviewing and directing each step. Claude's frontend-design skill was used to recolor and polish the UI. The actual specifications and plans given to the models are committed in `docs/superpowers/specs/` and `docs/superpowers/plans/`, so the prompting and workflow are inspectable in the repository itself.
