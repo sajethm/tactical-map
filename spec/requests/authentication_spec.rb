@@ -22,6 +22,24 @@ RSpec.describe 'Authentication', type: :request do
       post session_path, params: { email_address: 'a@example.com', password: 'wrong' }
       expect(response).to redirect_to(new_session_path)
     end
+
+    it 'shares a wrong-password alert as an Inertia prop' do
+      create(:user, email_address: 'a@example.com')
+      post session_path, params: { email_address: 'a@example.com', password: 'wrong' }
+      follow_redirect!
+      expect(inertia_flash_alert).to eq('Incorrect password. Try again.')
+    end
+
+    it 'shares an unknown-email alert as an Inertia prop' do
+      post session_path, params: { email_address: 'nobody@example.com', password: 'whatever' }
+      follow_redirect!
+      expect(inertia_flash_alert).to eq('No account found with that email address.')
+    end
+
+    def inertia_flash_alert
+      page = JSON.parse(response.body[%r{<script[^>]*type="application/json"[^>]*>(.*?)</script>}m, 1])
+      page.dig('props', 'flash', 'alert')
+    end
   end
 
   describe 'POST /registration' do

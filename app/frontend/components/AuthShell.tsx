@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react'
 import Reticle from '@/components/Reticle'
 
 interface Props {
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export default function AuthShell({ title, subtitle, children }: Props) {
+  const { flash } = usePage<{ flash?: { alert?: string; notice?: string } }>().props
   return (
     <div className="flex min-h-screen items-center justify-center bg-ground px-5">
       <div className="w-full max-w-[332px]">
@@ -16,6 +18,11 @@ export default function AuthShell({ title, subtitle, children }: Props) {
         </div>
         <h1 className="mt-6 text-[19px] leading-tight font-semibold tracking-tight">{title}</h1>
         <p className="mt-1.5 text-[13px] text-dim">{subtitle}</p>
+        {flash?.alert && (
+          <p role="alert" className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-[12.5px] text-destructive">
+            {flash.alert}
+          </p>
+        )}
         <div className="mt-7">{children}</div>
       </div>
     </div>
