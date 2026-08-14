@@ -76,8 +76,23 @@ Two denormalizations are deliberate. `entities.lat`/`lng` hold the current posit
 ### Tradeoffs
 
 - **Async processing + polling, not WebSockets.** Model latency shouldn't hold an HTTP request open, and polling is simple to deploy and robust for one active client. ActionCable is the natural upgrade for multi-client or lower-latency delivery.
+- **Constrained tool vocabulary, not an open-ended agent.** The model can only act through nine server-owned tools. That makes every action predictable, validatable, and auditable — and pairs with the ambiguity requirement, since a model that can't improvise must ask instead. The cost is that the model can't do anything the vocabulary doesn't anticipate; extending capability means deliberately adding a tool, its schema, and its audit shape.
 - **Float `lat`/`lng` columns, not PostGIS.** Positions are plain floats rather than a PostGIS `geography(Point)` column. PostGIS would give indexed spatial queries in SQL — "nearby nodes" via `ST_DWithin`/KNN ordering, true geodesic distances, viewport bounding-box filters — where today the seeded set is small enough that entities are polled to the client and spatial reasoning happens over the visible-entity context. Floats keep the schema and deployment plain Postgres with no extension to manage; PostGIS is the right move as soon as the entity count outgrows "send everything to the browser".
 - **Browser speech recognition, not server-side Whisper.** A Whisper endpoint would need an audio upload path and object storage to operate; browser `SpeechRecognition` needs neither — audio never leaves the browser and interim text streams live. The cost is Firefox, where the API is unavailable and the mic renders disabled with an explanation. For the demo, sacrificing Firefox was the better trade than standing up object storage; Whisper remains the natural upgrade.
+
+## Security
+
+The model never touches the application directly — it can only propose tool calls, and every call is validated against a server-owned JSON schema before any side effect is applied. There is no free-form SQL, code execution, or generic "do anything" path for a prompt-injected command to reach. The one destructive tool, `delete_marker`, re-checks the entity kind server-side and refuses to delete ships, aircraft, or vehicles even if the model asks.
+
+Secrets stay on the server: the OpenAI key is only used from background jobs, and OpenWeather tiles are fetched through a Rails proxy so that key never reaches the browser. The Mapbox token is a public client-side token by design, with a URL restriction configured in Mapbox so it only works from this application's origins. All routes sit behind Rails session authentication.
+
+Model output quality is a security surface too. In a production setting the system prompt would live in LangSmith with an eval suite run against every prompt change — regression checks that representative commands map to the expected tool calls (and that ambiguous ones produce clarifications, not guesses) — so hallucinated actions or degraded output can't drift in silently as the prompt evolves. Today the equivalent guard is the RSpec suite around prompt construction and response validation.
+
+## Performance
+
+Token cost is bounded by construction: the model's context is the viewport, the current selection, visible entities, and the last 10 messages — it does not grow with conversation length or fleet history. On the data side, the current position is denormalized onto `entities` so the map poll is a single indexed query with no "latest position" join, `entity_positions` is pruned past 24 hours so the hot table stays small, and weather tiles carry a 30-minute browser cache.
+
+At scale, two upgrades are queued behind clear seams. Entity filtering and viewport queries would move from the client into indexed server queries — with PostGIS, real-world spatial questions ("assets within 10 nm of this point", "nearest aircraft to the selection") become single indexed SQL calls the model could invoke as tools instead of reasoning over a context list. And commands could be classified before hitting the LLM: deterministic ones like "clear filters" don't need a model at all, and simple single-tool commands could route to a smaller/faster model, reserving the full tool-calling loop for genuinely compound requests.
 
 ## Quick start
 
@@ -97,8 +112,6 @@ The seeded demo account is `demo@example.com` / `password123`. (New OpenWeather 
 - Frontend: `pnpm test` — map reducer and sequential executor, clarification chips, speech-recognition handling and fallback, filters, trails, audit UI.
 - Types: `pnpm check`.
 
-Model calls are stubbed at the HTTP boundary, so the suites do not require an OpenAI key.
-
 ## Deployment
 
 `render.yaml` is a Render Blueprint for one Ruby web service and one PostgreSQL database. Create a Blueprint from this repository and provide `RAILS_MASTER_KEY`, `OPENAI_API_KEY`, `MAPBOX_ACCESS_TOKEN`, and `OPENWEATHER_API_KEY`; `DATABASE_URL` links automatically and the pre-deploy command prepares and seeds the databases.
@@ -108,4 +121,4 @@ Model calls are stubbed at the HTTP boundary, so the suites do not require an Op
 LLMs were used both **in** the product and **to build** it.
 
 - **In the product:** OpenAI tool calling with `gpt-5.4-mini` translates commands into map actions, constrained by server-owned JSON schemas per tool. The model was chosen for its speed and cost efficiency: commands should resolve in a couple of seconds, each one may involve several tool-calling round trips, and the small tool vocabulary with strict schemas doesn't need a frontier model to be reliable. The system prompt, context assembly, and validation live in `app/services/commands/`.
-- **In development:** The project was built with Claude Code in a spec-first workflow. Claude did most of the scaffolding and setup (Rails 8 + Inertia + React app, auth, CI). Planning was done in Claude with Opus — requirements brainstormed into a written design spec and broken into implementation plans — and execution agents carried out the plan tasks using GPT-5.6 Sol, with the developer reviewing and directing each step. Claude's frontend-design skill was used to recolor and polish the UI. The actual specifications and plans given to the models are committed in `docs/superpowers/specs/` and `docs/superpowers/plans/`, so the prompting and workflow are inspectable in the repository itself.
+- **In development:** The project was built with Claude Code in a spec-first workflow. Claude did most of the scaffolding and setup (Rails 8 + Inertia + React app, auth, CI). Planning was done in Claude with Opus — requirements brainstormed into a written design spec and broken into implementation plans — and execution agents carried out the plan tasks using GPT-5.6 Sol, with the developer reviewing and directing each step. Claude's frontend-design skill was used to recolor and polish the UI. The actual specifications and plans given to the models are committed in `docs/superpowers/specs/` and `docs/superpowers/plans/`, so the prompting and workflow are inspectable in the repository itself. Claude also helped organize my thoughts into this README :)
