@@ -2,7 +2,7 @@
 
 Tactical Map is a full-stack, map-based application (Rails 8, Inertia, React) where users create, place, view, and filter entities on a live tactical map using natural-language commands — typed or spoken. OpenAI tool calling translates each command into one or more validated map actions, and every command and action is durably recorded in an operator-facing audit log.
 
-**Live demo:** https://tactical-map-vhb0.onrender.com — sign in with `demo@example.com` / `password123`.
+**Live demo:** https://tactical-map-vhb0.onrender.com
 
 ## How the requirements are addressed
 
@@ -103,8 +103,6 @@ bin/setup                  # install dependencies, prepare databases
 cp .env.example .env       # then fill in OpenAI, Mapbox, OpenWeather keys
 bin/dev                    # Rails + Vite + process group
 ```
-
-The seeded demo account is `demo@example.com` / `password123`. (New OpenWeather free-tier keys can take up to an hour to activate.)
 
 ## Testing
 
