@@ -23,5 +23,5 @@ services:
         sync: false
       - key: OPENWEATHER_API_KEY
         sync: false
-      - key: WEB_CONCURRENCY
-        value: '1'
+      - key: MALLOC_ARENA_MAX
+        value: '2'
