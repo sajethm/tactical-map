@@ -37,9 +37,10 @@ plugin :tmp_restart
 # Run the Solid Queue supervisor inside of Puma for single-server deployments.
 plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]
 
-# In clustered mode the Solid Queue plugin forks from the Puma master process,
-# so the application must be preloaded there for SolidQueue to be defined.
-preload_app! if ENV["WEB_CONCURRENCY"]
+# Always run single-mode: one Puma process plus the Solid Queue processes is
+# all a 512MB instance can afford, and an explicit setting here wins over any
+# WEB_CONCURRENCY the platform injects.
+workers 0
 
 # Specify the PID file. Defaults to tmp/pids/server.pid in development.
 # In other environments, only set the PID file if requested.
