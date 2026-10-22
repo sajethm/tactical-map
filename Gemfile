@@ -50,4 +50,4 @@ gem "openai", "~> 0.78.0"
 
 gem "rspec-rails", "~> 8.0", groups: [ :development, :test ]
 gem "factory_bot_rails", "~> 6.5", groups: [ :development, :test ]
-gem "webmock", "~> 3.26", groups: [ :development, :test ]
+gem "webmock", "~> 3.34", groups: [ :development, :test ]
